@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quote & PO Hub</title>
+<style>
+:root{
+  --bg:#f5f6f8; --card:#fff; --ink:#1b2430; --muted:#6b7686; --line:#e3e7ee;
+  --brand:#1f3a5f; --brand-ink:#fff; --ok:#1e8449; --ok-bg:#e3f4ea; --warn:#b9770e; --warn-bg:#fdf1d8;
+  --bad:#b03a2e; --bad-bg:#fbe5e2; --info:#2467b3; --info-bg:#e1ecf9; --shadow:0 4px 18px rgba(20,30,50,.12);
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#12161c; --card:#1b212a; --ink:#e7ebf1; --muted:#9aa6b6; --line:#2b3441;
+  --brand:#5b8dd6; --brand-ink:#0d1117; --ok:#5fcf8a; --ok-bg:#16301f; --warn:#f0b64a; --warn-bg:#3a2f14;
+  --bad:#ef8a80; --bad-bg:#3a1a17; --info:#7fb2f0; --info-bg:#17283d; --shadow:0 4px 18px rgba(0,0,0,.5);}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,input,select{font:inherit;color:inherit}
+header{display:flex;align-items:center;gap:12px;padding:12px 20px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;flex-wrap:wrap}
+h1{font-size:17px;margin:0;margin-right:auto}
+.btn{border:1px solid var(--line);background:var(--card);padding:7px 12px;border-radius:8px;cursor:pointer}
+.btn:hover{border-color:var(--brand)}
+.btn.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.btn.ok{background:var(--ok);color:#fff;border-color:var(--ok)}
+.btn.bad{color:var(--bad);border-color:var(--bad)}
+.btn:disabled{opacity:.5;cursor:default}
+.bell{position:relative}
+.bell .count{position:absolute;top:-6px;right:-6px;background:var(--bad);color:#fff;border-radius:10px;font-size:11px;padding:0 6px;min-width:18px;text-align:center}
+main{max-width:1200px;margin:0 auto;padding:18px 20px 60px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.tile .n{font-size:26px;font-weight:650}
+.tile .l{color:var(--muted);font-size:12px}
+.status-line{color:var(--muted);font-size:12px;margin:0 0 12px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.tabs{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px}
+.tabs button{border:0;background:none;padding:6px 12px;border-radius:7px;cursor:pointer;color:var(--muted)}
+.tabs button.on{background:var(--brand);color:var(--brand-ink)}
+input[type=search],select,.f input{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:7px 10px}
+input[type=search]{min-width:220px;flex:1}
+.tablewrap{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:auto}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:12px;color:var(--muted);font-weight:600;background:var(--card);position:sticky;top:0}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--bg)}
+td.num,th.num{text-align:right}
+.pill{display:inline-block;border-radius:20px;padding:2px 9px;font-size:12px;font-weight:600}
+.pill.approved{background:var(--ok-bg);color:var(--ok)}
+.pill.needs_review{background:var(--warn-bg);color:var(--warn)}
+.pill.rejected{background:var(--bad-bg);color:var(--bad)}
+.pill.failed{background:var(--bad-bg);color:var(--bad)}
+.pill.type{background:var(--info-bg);color:var(--info)}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:14px;text-align:center;color:var(--muted);margin-bottom:12px}
+.drop.over{border-color:var(--brand);background:var(--info-bg);color:var(--ink)}
+
+/* notifications panel */
+.panel{position:fixed;top:56px;right:16px;width:min(380px,calc(100vw - 32px));max-height:70vh;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);z-index:40;display:none}
+.panel.open{display:block}
+.panel h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--line);font-size:14px;display:flex;justify-content:space-between;align-items:center}
+.note{padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+.note:hover{background:var(--bg)}
+.note.unread{border-left:3px solid var(--brand)}
+.note .t{font-weight:600}
+.note .b{color:var(--muted);font-size:12px}
+.note.error .t{color:var(--bad)}
+#toasts{position:fixed;bottom:16px;right:16px;display:flex;flex-direction:column;gap:8px;z-index:60}
+.toast{background:var(--brand);color:var(--brand-ink);padding:10px 14px;border-radius:10px;box-shadow:var(--shadow);max-width:340px;cursor:pointer}
+.toast.error{background:var(--bad);color:#fff}
+.toast .b{opacity:.85;font-size:12px}
+
+/* detail drawer */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:50;display:none}
+.scrim.open{display:block}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(760px,100vw);background:var(--card);z-index:55;box-shadow:var(--shadow);transform:translateX(100%);transition:transform .2s;display:flex;flex-direction:column}
+.drawer.open{transform:none}
+.drawer .head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center}
+.drawer .head h2{margin:0;font-size:16px;margin-right:auto}
+.drawer .body{padding:16px 18px;overflow:auto;flex:1}
+.drawer .foot{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap}
+.issues{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:10px 14px;margin-bottom:14px}
+.issues ul{margin:4px 0 0 18px;padding:0}
+.meta{color:var(--muted);font-size:12px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:14px}
+.f{display:flex;flex-direction:column;gap:3px}
+.f label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.f input,.f select{width:100%}
+h4{margin:14px 0 6px;font-size:13px}
+.items input{width:100%;border:1px solid var(--line);background:var(--card);border-radius:6px;padding:5px 6px;min-width:60px}
+.items td{padding:4px;white-space:normal}
+.items td.d input{min-width:180px}
+.link{color:var(--info);cursor:pointer;text-decoration:underline}
+
+/* modal (filters / ignored mail) */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:70;display:none;align-items:flex-start;justify-content:center;padding:4vh 12px;overflow:auto}
+.modal.open{display:flex}
+.modal .box{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);width:min(760px,100%)}
+.modal .mh{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.modal .mh h2{margin:0;font-size:16px;margin-right:auto}
+.modal .mb{padding:16px 18px}
+.modal .mf{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+.help{color:var(--muted);font-size:12px;margin:2px 0 8px}
+.fgroup{margin-bottom:14px}
+.fgroup > label{display:block;font-weight:600;margin-bottom:2px}
+textarea,.fgroup input[type=text]{width:100%;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:7px 10px;font:inherit;color:inherit}
+textarea{min-height:64px;resize:vertical}
+.chk{display:flex;gap:8px;align-items:flex-start;margin:6px 0}
+.chk input{margin-top:3px}
+.tester{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:6px}
+.tester input{width:100%;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:7px 10px}
+.tester .row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px}
+@media (max-width:640px){.tester .row{grid-template-columns:1fr}}
+.verdict{margin-top:8px;font-weight:600}
+.verdict.yes{color:var(--ok)} .verdict.no{color:var(--bad)}
+.ig td{white-space:normal}
+.ig .why{color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Quote &amp; PO Hub</h1>
+  <button class="btn" id="syncBtn" title="Check Gmail now">Sync Gmail</button>
+  <button class="btn" id="uploadBtn">Upload files</button>
+  <input type="file" id="fileInput" multiple hidden>
+  <button class="btn" id="filtersBtn" title="Choose which emails are processed">Filters</button>
+  <button class="btn" id="ignoredBtn" title="Emails your filters skipped">Ignored</button>
+  <a class="btn" href="/api/export.xlsx" id="exportBtn" style="text-decoration:none;color:inherit">Export Excel</a>
+  <button class="btn bell" id="bellBtn" aria-label="Notifications">🔔<span class="count" id="bellCount" hidden>0</span></button>
+</header>
+
+<div class="panel" id="panel">
+  <h3>Notifications <button class="btn" id="markRead">Mark all read</button></h3>
+  <div id="notes"></div>
+</div>
+<div id="toasts"></div>
+
+<main>
+  <div class="tiles" id="tiles"></div>
+  <p class="status-line" id="statusLine"></p>
+  <div class="drop" id="drop">Drop quotations / POs here (PDF, Excel, Word, CSV, image, text… any format)</div>
+  <div class="bar">
+    <div class="tabs" id="tabs">
+      <button data-s="" class="on">All</button>
+      <button data-s="needs_review">Needs review</button>
+      <button data-s="approved">Approved</button>
+      <button data-s="rejected">Rejected</button>
+    </div>
+    <select id="typeSel"><option value="">All types</option><option value="quotation">Quotations</option><option value="purchase_order">Purchase orders</option><option value="unknown">Unknown</option></select>
+    <input type="search" id="q" placeholder="Search number, vendor, buyer, sender, subject">
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Type</th><th>Number</th><th>Vendor</th><th>Buyer</th><th class="num">Total</th><th>Status</th><th class="num">Conf.</th><th>Source</th><th>Received</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="empty" hidden>No documents yet. Connect Gmail, drop files here, or upload some.</div>
+  </div>
+</main>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="head"><h2 id="dTitle"></h2><span id="dPill"></span><button class="btn" id="dClose">Close</button></div>
+  <div class="body" id="dBody"></div>
+  <div class="foot">
+    <button class="btn ok" id="dApprove">Approve</button>
+    <button class="btn bad" id="dReject">Reject</button>
+    <button class="btn primary" id="dSave">Save corrections</button>
+    <a class="btn" id="dFile" target="_blank" style="text-decoration:none;color:inherit">Open original file</a>
+  </div>
+</aside>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true">
+  <div class="box">
+    <div class="mh"><h2 id="mTitle"></h2><button class="btn" id="mClose">Close</button></div>
+    <div class="mb" id="mBody"></div>
+    <div class="mf" id="mFoot" hidden></div>
+  </div>
+</div>
+
+<script>
+// ---- helpers: all email-derived text goes through textContent / esc() (it is untrusted) ----
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money = (v, cur) => v == null ? '—' : `${cur || ''} ${Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`.trim();
+const typeLabel = t => ({quotation:'Quotation',purchase_order:'PO',unknown:'Unknown'}[t] || t);
+const statusLabel = s => ({needs_review:'Needs review',approved:'Approved',rejected:'Rejected',failed:'Failed'}[s] || s);
+const when = s => { if(!s) return '—'; const d = new Date(s); return isNaN(d) ? s : d.toLocaleString([], {dateStyle:'medium', timeStyle:'short'}); };
+async function api(path, opts){ const r = await fetch(path, opts); if(!r.ok){ let m=r.statusText; try{ m=(await r.json()).detail||m }catch{} throw new Error(m);} return r.json(); }
+
+let state = {status:'', type:'', q:''};
+let lastNoteId = null, current = null;
+
+// ---- list ----
+async function loadDocs(){
+  const p = new URLSearchParams(); if(state.status) p.set('status',state.status); if(state.type) p.set('doc_type',state.type); if(state.q) p.set('q',state.q);
+  const docs = await api('/api/documents?'+p);
+  $('#empty').hidden = docs.length > 0;
+  $('#rows').innerHTML = docs.map(d => `
+    <tr data-id="${d.id}">
+      <td><span class="pill type">${esc(typeLabel(d.doc_type))}</span></td>
+      <td>${esc(d.doc_number || '—')}</td>
+      <td>${esc(d.vendor_name || '—')}</td>
+      <td>${esc(d.buyer_name || '—')}</td>
+      <td class="num">${esc(money(d.grand_total, d.currency))}</td>
+      <td><span class="pill ${esc(d.status)}">${esc(statusLabel(d.status))}</span>${d.issues.length ? ` <span title="${esc(d.issues.join('\n'))}">⚠ ${d.issues.length}</span>`:''}</td>
+      <td class="num">${Math.round((d.confidence||0)*100)}%</td>
+      <td>${esc(d.filename || '')}<div class="meta" style="margin:0">${esc(d.sender || '')}</div></td>
+      <td>${esc(when(d.received_at))}</td>
+    </tr>`).join('');
+}
+async function loadStats(){
+  const s = await api('/api/stats');
+  const total = Object.values(s.by_status).reduce((a,b)=>a+b,0);
+  $('#tiles').innerHTML = [
+    ['Total documents', total], ['Needs review', s.by_status.needs_review||0], ['Approved', s.by_status.approved||0],
+    ['Quotations', s.by_type.quotation||0], ['Purchase orders', s.by_type.purchase_order||0]
+  ].map(([l,n]) => `<div class="tile"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+  const ls = s.last_sync;
+  $('#statusLine').textContent =
+    (s.gmail_connected ? `Gmail connected · checks every ${s.poll_seconds}s` : 'Gmail not connected yet (see README) — you can still upload / drop files') +
+    ' · ' + (s.ai_enabled ? 'AI extraction on' : 'AI extraction OFF (rules only — set ANTHROPIC_API_KEY)') +
+    (ls ? ` · last sync: ${ls.source}, ${ls.docs_added} added, ${when(ls.finished_at)}` : '');
+  setBell(s.unread);
+  $('#ignoredBtn').textContent = s.ignored ? `Ignored (${s.ignored})` : 'Ignored';
+}
+function setBell(n){ const c=$('#bellCount'); c.textContent=n; c.hidden=!n; }
+
+// ---- notifications ----
+async function pollNotes(first){
+  const after = lastNoteId ?? 0;
+  const notes = await api('/api/notifications?after_id='+after);
+  if(notes.length){
+    const maxId = Math.max(...notes.map(n=>n.id));
+    if(!first){
+      // a burst (e.g. a whole mailbox sync) becomes ONE toast instead of a pile
+      if(notes.length > 3){
+        const sum = notes.find(n => n.kind==='sync' || n.kind==='error');
+        toast(sum || {kind:'info', title: `${notes.length} new notifications`, body: 'Open the bell to see them'});
+      } else notes.slice().reverse().forEach(n => toast(n));
+      loadDocs(); loadStats();
+    }
+    lastNoteId = maxId;
+  } else if(lastNoteId === null) lastNoteId = 0;
+  if(first) renderNotes();
+}
+function toast(n){
+  const t = document.createElement('div'); t.className = 'toast ' + (n.kind==='error'?'error':'');
+  const a = document.createElement('div'); a.textContent = n.title;
+  const b = document.createElement('div'); b.className='b'; b.textContent = n.body || '';
+  t.append(a,b);
+  t.onclick = () => { t.remove(); if(n.document_id) openDoc(n.document_id); };
+  $('#toasts').append(t); setTimeout(()=>t.remove(), 9000);
+  if(document.hidden && 'Notification' in window && Notification.permission==='granted') new Notification(n.title,{body:n.body});
+}
+async function renderNotes(){
+  const notes = await api('/api/notifications');
+  const box = $('#notes'); box.innerHTML = '';
+  if(!notes.length){ box.innerHTML = '<div class="empty">Nothing yet</div>'; return; }
+  notes.forEach(n => {
+    const d = document.createElement('div'); d.className = `note ${n.kind} ${n.is_read?'':'unread'}`;
+    const t = document.createElement('div'); t.className='t'; t.textContent = n.title;
+    const b = document.createElement('div'); b.className='b'; b.textContent = `${n.body||''} · ${when(n.created_at)}`;
+    d.append(t,b); d.onclick = () => { if(n.document_id){ $('#panel').classList.remove('open'); openDoc(n.document_id);} };
+    box.append(d);
+  });
+}
+$('#bellBtn').onclick = async () => {
+  if('Notification' in window && Notification.permission==='default') Notification.requestPermission();
+  const p = $('#panel'); p.classList.toggle('open'); if(p.classList.contains('open')) renderNotes();
+};
+$('#markRead').onclick = async () => { await api('/api/notifications/read',{method:'POST'}); renderNotes(); loadStats(); };
+
+// ---- filters ----
+$('#tabs').onclick = e => { const b=e.target.closest('button'); if(!b) return; [...$('#tabs').children].forEach(x=>x.classList.toggle('on',x===b)); state.status=b.dataset.s; loadDocs(); };
+$('#typeSel').onchange = e => { state.type=e.target.value; loadDocs(); };
+let qt; $('#q').oninput = e => { clearTimeout(qt); qt=setTimeout(()=>{ state.q=e.target.value; loadDocs(); },250); };
+$('#rows').onclick = e => { const tr=e.target.closest('tr'); if(tr) openDoc(+tr.dataset.id); };
+
+// ---- sync / upload ----
+$('#syncBtn').onclick = async () => {
+  const b=$('#syncBtn'); b.disabled=true; b.textContent='Syncing…';
+  try{ await api('/api/sync?source=gmail',{method:'POST'}); } catch(e){ toast({kind:'error',title:'Sync failed',body:e.message}); }
+  b.disabled=false; b.textContent='Sync Gmail'; pollNotes(false); loadDocs(); loadStats();
+};
+async function upload(files){
+  if(!files.length) return;
+  const fd = new FormData(); [...files].forEach(f=>fd.append('files',f));
+  try{ await api('/api/upload',{method:'POST',body:fd}); } catch(e){ toast({kind:'error',title:'Upload failed',body:e.message}); }
+  pollNotes(false); loadDocs(); loadStats();
+}
+$('#uploadBtn').onclick = () => $('#fileInput').click();
+$('#fileInput').onchange = e => { upload(e.target.files); e.target.value=''; };
+const drop = $('#drop');
+['dragenter','dragover'].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+document.addEventListener('drop', e => upload(e.dataTransfer.files));
+
+// ---- detail drawer ----
+const HEAD = [['doc_number','Document number'],['doc_date','Date (YYYY-MM-DD)'],['valid_until_or_delivery_date','Valid until / delivery'],
+  ['reference_number','Reference (quote ↔ PO)'],['currency','Currency'],['payment_terms','Payment terms']];
+const TOT = [['subtotal','Subtotal'],['tax_total','Tax'],['grand_total','Grand total']];
+const ITEM_COLS = [['description','Description','d'],['item_code','Code'],['quantity','Qty'],['unit','Unit'],['unit_price','Unit price'],['tax_percent','Tax %'],['line_total','Line total']];
+
+function field(id,label,val,type='text'){ return `<div class="f"><label for="${id}">${esc(label)}</label><input id="${id}" type="${type}" value="${esc(val ?? '')}"></div>`; }
+function itemRow(li){
+  return `<tr>${ITEM_COLS.map(([k,,cls]) => `<td class="${cls||''}"><input data-k="${k}" value="${esc(li[k] ?? '')}"></td>`).join('')}<td><button class="btn" data-del>✕</button></td></tr>`;
+}
+async function openDoc(id){
+  const d = await api('/api/documents/'+id); current = d; const x = d.data;
+  $('#dTitle').textContent = `${typeLabel(d.doc_type)} ${d.doc_number || '(no number)'}`;
+  $('#dPill').innerHTML = `<span class="pill ${esc(d.status)}">${esc(statusLabel(d.status))}</span>`;
+  const links = await api('/api/links');
+  const rel = links.filter(l => l.po_id===id || l.quote_id===id).map(l => l.po_id===id
+      ? `<span class="link" data-open="${l.quote_id}">Quotation ${esc(l.quote_number)} (${esc(money(l.quote_total))})</span>`
+      : `<span class="link" data-open="${l.po_id}">PO ${esc(l.po_number)} (${esc(money(l.po_total))})</span>`);
+  $('#dBody').innerHTML = `
+    ${d.issues.length ? `<div class="issues"><b>Please check:</b><ul>${d.issues.map(i=>`<li>${esc(i)}</li>`).join('')}</ul></div>` : ''}
+    <div class="meta">From <b>${esc(d.sender)}</b> · “${esc(d.subject)}” · ${esc(when(d.received_at))}<br>
+      File: ${esc(d.filename)} (read as ${esc(d.source_format)}, extracted by ${esc(d.extraction_method)}) · confidence ${Math.round(d.confidence*100)}%
+      ${rel.length ? `<br>Linked: ${rel.join(', ')}` : ''}</div>
+    <div class="grid">
+      <div class="f"><label for="f_doc_type">Type</label><select id="f_doc_type">${['quotation','purchase_order','unknown'].map(t=>`<option value="${t}" ${t===x.doc_type?'selected':''}>${typeLabel(t)}</option>`).join('')}</select></div>
+      ${HEAD.map(([k,l]) => field('f_'+k,l,x[k])).join('')}
+    </div>
+    <h4>Vendor (seller)</h4><div class="grid">${['name','tax_id','email','phone'].map(k=>field('v_'+k,k.replace('_',' '),x.vendor[k])).join('')}</div>
+    <h4>Buyer</h4><div class="grid">${['name','tax_id','email','phone'].map(k=>field('b_'+k,k.replace('_',' '),x.buyer[k])).join('')}</div>
+    <h4>Line items</h4>
+    <div class="tablewrap"><table class="items"><thead><tr>${ITEM_COLS.map(c=>`<th>${c[1]}</th>`).join('')}<th></th></tr></thead><tbody id="itemRows">${x.line_items.map(itemRow).join('')}</tbody></table></div>
+    <p><button class="btn" id="addItem">+ Add line</button></p>
+    <h4>Totals</h4><div class="grid">${TOT.map(([k,l])=>field('f_'+k,l,x[k])).join('')}</div>`;
+  $('#dFile').href = `/api/documents/${id}/file`;
+  $('#drawer').classList.add('open'); $('#scrim').classList.add('open'); $('#drawer').setAttribute('aria-hidden','false');
+}
+function closeDoc(){ $('#drawer').classList.remove('open'); $('#scrim').classList.remove('open'); current=null; }
+$('#dClose').onclick = closeDoc; $('#scrim').onclick = closeDoc;
+$('#dBody').onclick = e => {
+  if(e.target.id==='addItem') $('#itemRows').insertAdjacentHTML('beforeend', itemRow({}));
+  if(e.target.matches('[data-del]')) e.target.closest('tr').remove();
+  if(e.target.dataset.open) openDoc(+e.target.dataset.open);
+};
+const numOrNull = v => { v=String(v).trim().replace(/,/g,''); if(v==='') return null; const n=Number(v); return isNaN(n)?null:n; };
+const strOrNull = v => { v=String(v).trim(); return v===''?null:v; };
+function collect(){
+  const g = id => $('#'+id).value;
+  const x = {doc_type:g('f_doc_type'), notes: current.data.notes};
+  ['doc_number','doc_date','valid_until_or_delivery_date','reference_number','currency','payment_terms'].forEach(k => x[k]=strOrNull(g('f_'+k)));
+  if(x.currency) x.currency = x.currency.toUpperCase();
+  ['subtotal','tax_total','grand_total'].forEach(k => x[k]=numOrNull(g('f_'+k)));
+  const party = p => Object.fromEntries(['name','tax_id','email','phone'].map(k=>[k, strOrNull(g(p+'_'+k))]));
+  x.vendor = party('v'); x.buyer = party('b');
+  x.line_items = [...document.querySelectorAll('#itemRows tr')].map(tr => {
+    const o = {}; tr.querySelectorAll('input').forEach(i => { const k=i.dataset.k; o[k] = ['quantity','unit_price','tax_percent','line_total'].includes(k) ? numOrNull(i.value) : (k==='description' ? i.value.trim() : strOrNull(i.value)); });
+    return o;
+  }).filter(o => o.description || o.line_total != null);
+  return x;
+}
+async function patch(body, msg){
+  try{ await api('/api/documents/'+current.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); toast({kind:'info',title:msg}); }
+  catch(e){ toast({kind:'error',title:'Could not save',body:e.message}); return false; }
+  return true;
+}
+$('#dSave').onclick = async () => { const id=current.id; if(await patch({data:collect()},'Corrections saved')){ await loadDocs(); loadStats(); openDoc(id);} };
+$('#dApprove').onclick = async () => { if(await patch({data:collect(), status:'approved'},'Approved')){ closeDoc(); loadDocs(); loadStats(); } };
+$('#dReject').onclick = async () => { if(await patch({status:'rejected'},'Rejected')){ closeDoc(); loadDocs(); loadStats(); } };
+document.addEventListener('keydown', e => { if(e.key==='Escape'){ closeModal(); closeDoc(); $('#panel').classList.remove('open'); } });
+
+// ---- filters & ignored mail ----
+const modal = $('#modal');
+function openModal(title, html, footHtml){
+  $('#mTitle').textContent = title; $('#mBody').innerHTML = html;
+  const f = $('#mFoot'); f.innerHTML = footHtml || ''; f.hidden = !footHtml;
+  modal.classList.add('open');
+}
+function closeModal(){ modal.classList.remove('open'); }
+$('#mClose').onclick = closeModal;
+modal.addEventListener('click', e => { if(e.target === modal) closeModal(); });
+const parseList = id => $('#'+id).value.split(/[\n,;]+/).map(x => x.trim()).filter(Boolean);
+
+async function openFilters(){
+  const r = await api('/api/filters');
+  openModal('Which emails should be processed?', `
+    <p class="help">Emails that don't pass are <b>ignored</b>: they are not downloaded, not read by the AI, and never appear in your review queue. You can always see them under “Ignored” and rescue one.</p>
+
+    <div class="fgroup"><label for="fl_allowed">✅ Always process emails from</label>
+      <div class="help">Your suppliers and customers. One per line: a full address (<code>buyer@acme.com</code>) or a whole company (<code>acme.com</code>). These pass whatever the subject says.</div>
+      <textarea id="fl_allowed" placeholder="acme.com&#10;orders@sharma-fasteners.in">${esc((r.allowed_senders||[]).join('\n'))}</textarea>
+      <label class="chk"><input type="checkbox" id="fl_only" ${r.only_allowed_senders?'checked':''}><span><b>Only these senders</b> — ignore everyone else, even if the subject says “quotation”. (Strictest and safest. Needs at least one sender above.)</span></label>
+    </div>
+
+    <div class="fgroup"><label for="fl_blocked">⛔ Never process emails from</label>
+      <div class="help">Newsletters, marketing, notifications. Address or domain; <code>noreply@</code> blocks every address starting with it.</div>
+      <textarea id="fl_blocked" placeholder="noreply@&#10;marketing.example.com">${esc((r.blocked_senders||[]).join('\n'))}</textarea>
+    </div>
+
+    <div class="fgroup"><label for="fl_kw">Looks like a quotation / PO when the subject or file name contains</label>
+      <div class="help">Used for senders that are not on your allowed list. Whole words only (“po” matches PO-4521, not “report”).</div>
+      <textarea id="fl_kw">${esc((r.keywords||[]).join('\n'))}</textarea>
+    </div>
+
+    <div class="fgroup"><label for="fl_bkw">Ignore when the subject contains</label>
+      <textarea id="fl_bkw">${esc((r.blocked_keywords||[]).join('\n'))}</textarea>
+    </div>
+
+    <div class="fgroup">
+      <label class="chk"><input type="checkbox" id="fl_att" ${r.require_attachment?'checked':''}><span>Only emails that have an <b>attachment</b> (skips plain-text chit-chat)</span></label>
+    </div>
+
+    <div class="fgroup"><label for="fl_label">Only look inside this Gmail label (optional)</label>
+      <div class="help">Tip: make a Gmail filter that labels quotation/PO mail “QuotePO”, then type QuotePO here.</div>
+      <input type="text" id="fl_label" value="${esc(r.gmail_label||'')}" placeholder="QuotePO">
+    </div>
+
+    <div class="fgroup"><label>Try it before saving</label>
+      <div class="tester">
+        <div class="row">
+          <input id="t_sender" placeholder="sender, e.g. a@acme.com">
+          <input id="t_subject" placeholder="subject">
+          <input id="t_files" placeholder="attachment names (optional)">
+        </div>
+        <button class="btn" id="t_go" type="button">Test these rules</button>
+        <div class="verdict" id="t_result" aria-live="polite"></div>
+      </div>
+    </div>`,
+    `<button class="btn" id="fl_cancel">Cancel</button><button class="btn primary" id="fl_save">Save filters</button>`);
+}
+function collectRules(){
+  return {allowed_senders: parseList('fl_allowed'), only_allowed_senders: $('#fl_only').checked,
+          blocked_senders: parseList('fl_blocked'), keywords: parseList('fl_kw'), blocked_keywords: parseList('fl_bkw'),
+          require_attachment: $('#fl_att').checked, gmail_label: $('#fl_label').value.trim()};
+}
+async function runTest(){
+  const out = $('#t_result');
+  try{
+    const r = await api('/api/filters/test',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({rules:collectRules(), sender:$('#t_sender').value, subject:$('#t_subject').value, filenames:parseList('t_files')})});
+    out.className = 'verdict ' + (r.process?'yes':'no');
+    out.textContent = (r.process ? '✓ Would be processed — ' : '✗ Would be ignored — ') + r.reason;
+  }catch(e){ out.className='verdict no'; out.textContent = e.message; }
+}
+async function saveFilters(){
+  const b = $('#fl_save'); b.disabled = true;
+  try{
+    await api('/api/filters',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(collectRules())});
+    closeModal(); toast({kind:'info', title:'Filters saved', body:'Recent mail is being re-checked with the new rules.'});
+    loadStats(); setTimeout(()=>{ loadDocs(); loadStats(); pollNotes(false).catch(()=>{}); }, 4000);
+  }catch(e){ toast({kind:'error', title:'Could not save filters', body:e.message}); b.disabled = false; }
+}
+
+async function openIgnored(){
+  const rows = await api('/api/ignored');
+  const body = rows.length ? `
+    <p class="help">These emails were skipped by your filters and were not read. Wrongly skipped? Process it, or allow the sender for good.</p>
+    <div class="tablewrap"><table class="ig"><thead><tr><th>From</th><th>Subject</th><th>Why ignored</th><th></th></tr></thead><tbody>
+    ${rows.map(r => `<tr><td>${esc(r.sender||'')}<div class="why">${esc(r.sender_email||'')}</div></td>
+      <td>${esc(r.subject||'(no subject)')}<div class="why">${esc(when(r.received_at))}</div></td>
+      <td class="why">${esc(r.reason)}</td>
+      <td style="white-space:nowrap"><button class="btn" data-proc="${esc(r.message_id)}">Process anyway</button>
+        <button class="btn" data-allow="${esc(r.message_id)}" title="Process this and always accept this sender">Always allow sender</button></td></tr>`).join('')}
+    </tbody></table></div>` : '<div class="empty">Nothing has been ignored.</div>';
+  openModal(`Ignored emails (${rows.length})`, body);
+}
+async function processIgnored(id, allow, btn){
+  btn.disabled = true; btn.textContent = 'Working…';
+  try{
+    const r = await api(`/api/ignored/${encodeURIComponent(id)}/process?allow_sender=${allow}`,{method:'POST'});
+    toast({kind:'info', title: r.added ? `${r.added} document(s) added` : 'Processed — no document found in that email'});
+    await loadDocs(); await loadStats(); openIgnored();
+  }catch(e){ toast({kind:'error', title:'Could not process', body:e.message}); btn.disabled = false; btn.textContent = allow ? 'Always allow sender' : 'Process anyway'; }
+}
+$('#filtersBtn').onclick = () => openFilters().catch(e => toast({kind:'error', title:'Could not load filters', body:e.message}));
+$('#ignoredBtn').onclick = () => openIgnored().catch(e => toast({kind:'error', title:'Could not load list', body:e.message}));
+$('#mBody').addEventListener('click', e => {
+  const t = e.target;
+  if(t.id==='t_go') runTest();
+  else if(t.dataset.proc) processIgnored(t.dataset.proc, false, t);
+  else if(t.dataset.allow) processIgnored(t.dataset.allow, true, t);
+});
+$('#mFoot').addEventListener('click', e => { if(e.target.id==='fl_save') saveFilters(); if(e.target.id==='fl_cancel') closeModal(); });
+
+// ---- boot ----
+(async () => { await loadStats(); await loadDocs(); await pollNotes(true); setInterval(()=>{ pollNotes(false).catch(()=>{}); }, 4000); setInterval(()=>{ loadStats().catch(()=>{}); }, 15000); })();
+</script>
+</body>
+</html>
